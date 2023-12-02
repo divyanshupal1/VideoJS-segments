@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.11.7/video-js.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.11.7/video.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-eme@3.8.0/dist/videojs-contrib-eme.js"></script>
+
+    <link rel="stylesheet" href="./style.css">
+
+    <title>Test VideJS DRM</title>
+</head>
+<body >
+
+    <div class="vid-container">
+        <div class="vid-wrap">
+            <video id="my-video" class="video-js"></video>
+        </div>
+        <div class="segments-cont">
+            <div class="segment-wrap" id="seg-cont">
+                
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        //array of segments
+        const segments = [
+            {
+                start:0,
+                end: 10,
+                thumbnail:"https://images.pexels.com/photos/18758962/pexels-photo-18758962/free-photo-of-a-man-doing-a-handstand-on-the-ground.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+                title:"Segment 1"
+            },
+            {
+                start:10,
+                end: 30,
+                thumbnail:"https://images.pexels.com/photos/18758962/pexels-photo-18758962/free-photo-of-a-man-doing-a-handstand-on-the-ground.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+                title:"Segment 2"
+            },
+            {
+                start:30,
+                end: 50,
+                thumbnail:"https://images.pexels.com/photos/18758962/pexels-photo-18758962/free-photo-of-a-man-doing-a-handstand-on-the-ground.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+                title:"Segment 3"
+            },
+            {
+                start:50,
+                end: 100,
+                thumbnail:"https://images.pexels.com/photos/18758962/pexels-photo-18758962/free-photo-of-a-man-doing-a-handstand-on-the-ground.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+                title:"Segment 4"
+            }
+        ]
+        //player config
+        var player = videojs('my-video',
+            {
+                muted:true,
+                autoplay: true,
+                controls: true,
+                fluid: true,
+                html5: {
+                    vhs: { 
+                        overrideNative: true 
+                    }
+                },
+            },       
+        ); 
+        player.eme();
+        player.src({
+            src: 'https://cdn.bitmovin.com/content/assets/art-of-motion_drm/mpds/11331.mpd',
+            type: 'application/dash+xml',                    
+            keySystems: {
+                'com.widevine.alpha': 'https://cwip-shaka-proxy.appspot.com/no_auth',                     
+            }
+        });
+        //when player is ready
+        player.ready(function() {
+            player.on('loadedmetadata', function() {
+                addSegments(segments);            
+            });               
+        }); 
+        //passing each segment to addSegment function
+        function addSegments(segments) {
+            segments.forEach(function(segment) {
+                addSegment(segment.start, segment.end, segment.thumbnail, segment.title);
+            });
+        }
+        //function to add segments
+        function addSegment(start, end, thumb, title) {
+
+            var progressBar = player.controlBar.progressControl.el();
+            var duration = player.duration();
+
+            var segment = document.createElement('div');
+            segment.className = 'segment';
+            segment.style.left = (start / duration) * 100 + '%';
+            segment.style.width = "calc(" + ((end - start) / duration) * 100 + '% - 2px)';
+            segment.setAttribute('onmouseover','segmentMouseOver();');
+            segment.setAttribute('onmouseleave','segmentMouseLeave();');
+
+
+            if(thumb || title) {
+
+                var thumbnailContainer = document.createElement('div');
+                thumbnailContainer.className = 'thumbnail-container';
+
+                var thubnail = document.createElement('div');
+                thubnail.className = 'thumbnail';
+
+                if(thumb){
+                    var thumbnail_image = document.createElement('div');
+                    thumbnail_image.className = 'thumbnail-image';
+                    thumbnail_image.style.backgroundImage = 'url(' + thumb + ')';
+                    thubnail.appendChild(thumbnail_image);
+                }
+                if(title){                    
+                    var thumbnailTitle = document.createElement('div');
+                    thumbnailTitle.className = 'thumbnail-title';
+                    thumbnailTitle.innerHTML = title;                    
+                    thubnail.appendChild(thumbnailTitle);
+                }
+
+                thumbnailContainer.appendChild(thubnail);
+                segment.appendChild(thumbnailContainer);
+            }
+
+            segment.addEventListener('click', function() {
+                player.currentTime(start);  
+            });     
+            var progressbarBG = progressBar.children[0];
+            progressBar.classList.add('custom-progress-bar');          
+            progressbarBG.appendChild(segment);
+        }
+        //function for hiding time tooltip while hovering segment
+        function segmentMouseOver(){
+            var progressBar = player.controlBar.progressControl.el();
+            progressBar.children[0].children[1].setAttribute('style','display:none;')
+        }
+        //making tooltip visible again
+        function segmentMouseLeave(){
+            var progressBar = player.controlBar.progressControl.el();
+            progressBar.children[0].children[1].setAttribute('style','display:block;')
+        }
+        //function for scrolling to a specific segment using segment index
+        function scrollToSegment(segmentIndex){
+            player.currentTime(segments[segmentIndex].start)
+        }
+        //for adding bottom thumbnails for seeking to segment
+        var bottomThumbnailsContainer = document.getElementById('seg-cont');
+        segments.forEach((segment,index)=>{
+            var seg_thumbnail = `
+            <div class="segment-thumb" onclick="scrollToSegment(${index})" style="background-image: url('${segment.thumbnail}');">
+                    <div class="seg-image" ></div>
+                    <div class="seg-title" style="background-color: rgba(205, 205, 205, 0.534);padding: 5px;width: 100%;" >${segment.title}</div>
+                </div>
+            `
+            bottomThumbnailsContainer.innerHTML += seg_thumbnail
+        })
+    </script>
+</body>
+</html>
